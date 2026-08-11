@@ -350,7 +350,7 @@
             <div class="station-card">
                 <div class="st-id">EQUIPO 02 · CAUDAL</div>
                 <div class="st-name">CAUDALÍMETRO MUT7000</div>
-                <div class="st-sub">BERMAD · Electromagnético · RS485 · Salida de la Bomba Sumergible</div>
+                <div class="st-sub">BERMAD · Salida de la Bomba Sumergible</div>
 
                 <div class="status-section">
                     <div class="ss-title">CAUDAL</div>
@@ -366,12 +366,8 @@
                 <div class="status-section">
                     <div class="ss-title">TOTALIZADORES</div>
                     <div class="srow">
-                        <span class="srow-label">Total Positivo</span>
+                        <span class="srow-label">Total Acumulado</span>
                         <span class="srow-value cyan" id="cd-totpos"><span class="skel"></span></span>
-                    </div>
-                    <div class="srow">
-                        <span class="srow-label">Total Negativo</span>
-                        <span class="srow-value cyan" id="cd-totneg"><span class="skel"></span></span>
                     </div>
                 </div>
             </div>
@@ -382,7 +378,7 @@
             <div class="station-card">
                 <div class="st-id">EQUIPO 03 · PRESURIZACIÓN</div>
                 <div class="st-name">BOMBA PRINCIPAL</div>
-                <div class="st-sub">Variador CFW500 · Velocidad variable</div>
+                <div class="st-sub">Variador CFW500 </div>
 
                 <div class="pump-circle-wrap">
                     <div class="pump-circle espera" id="pcircle-cfw">
@@ -461,7 +457,7 @@
                     </div>
                     <div class="srow-label" style="font-size:.65rem;line-height:1.3;margin-top:4px;">
                         Se desactiva si se deshabilitó la Bomba Sumergible o si
-                        la cisterna se quedó sin agua (no distingue cuál).
+                        la cisterna se quedó sin agua.
                     </div>
                 </div>
             </div>
@@ -472,7 +468,7 @@
             <div class="station-card">
                 <div class="st-id">EQUIPO 04 · PRESURIZACIÓN</div>
                 <div class="st-name">BOMBA AUXILIAR</div>
-                <div class="st-sub">Habilitada por DI2 · Arrancada por salida DO2 del CFW500</div>
+                <div class="st-sub"></div>
 
                 <div class="status-section">
                     <div class="ss-title">HABILITACIÓN</div>
@@ -496,7 +492,7 @@
             <div class="station-card">
                 <div class="st-id">EQUIPO 05 · CISTERNA</div>
                 <div class="st-name">NIVEL DE CISTERNA</div>
-                <div class="st-sub">Probablemente vía entrada digital (a definir)</div>
+                <div class="st-sub"></div>
 
                 <div class="status-section">
                     <div class="ss-title">NIVEL</div>
@@ -840,11 +836,11 @@ async function renderChart(){
             type:'line',
             data:{
                 datasets:[
-                    {label:'CFW500 Corriente (A)',      data:d1, borderColor:'#00e676', backgroundColor:'rgba(0,230,118,.08)', borderWidth:1.5, pointRadius:0, tension:0.3, yAxisID:'yA'},
-                    {label:'Analizador Corriente Prom (A)', data:d2, borderColor:'#00e5ff', backgroundColor:'rgba(0,229,255,.06)', borderWidth:1.5, pointRadius:0, tension:0.3, yAxisID:'yA'},
-                    {label:'Analizador Tensión L1 (V)', data:d3, borderColor:'#ffab00', backgroundColor:'transparent', borderWidth:1, pointRadius:0, tension:0.3, yAxisID:'yV'},
-                    {label:'Analizador Tensión L2 (V)', data:d4, borderColor:'#ff6d00', backgroundColor:'transparent', borderWidth:1, pointRadius:0, tension:0.3, yAxisID:'yV'},
-                    {label:'Analizador Tensión L3 (V)', data:d5, borderColor:'#ff1744', backgroundColor:'transparent', borderWidth:1, pointRadius:0, tension:0.3, yAxisID:'yV'},
+                    {label:'Corriente Bomba Principal (A)',      data:d1, borderColor:'#00e676', backgroundColor:'rgba(0,230,118,.08)', borderWidth:1.5, pointRadius:0, tension:0.3, yAxisID:'yA'},
+                    {label:'Corriente Bomba Sumergible (A)', data:d2, borderColor:'#00e5ff', backgroundColor:'rgba(0,229,255,.06)', borderWidth:1.5, pointRadius:0, tension:0.3, yAxisID:'yA'},
+                    {label:'Tensión Red L1 (V)', data:d3, borderColor:'#ffab00', backgroundColor:'transparent', borderWidth:1, pointRadius:0, tension:0.3, yAxisID:'yV'},
+                    {label:'Tensión Red L2 (V)', data:d4, borderColor:'#ff6d00', backgroundColor:'transparent', borderWidth:1, pointRadius:0, tension:0.3, yAxisID:'yV'},
+                    {label:'Tensión Red L3 (V)', data:d5, borderColor:'#ff1744', backgroundColor:'transparent', borderWidth:1, pointRadius:0, tension:0.3, yAxisID:'yV'},
                 ]
             },
             options:{
