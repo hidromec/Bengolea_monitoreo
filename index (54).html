@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>SCADA · Planta de Bombeo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800&family=Rajdhani:wght@500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <style>
+        :root {
+            --bg-main:        #070c10;
+            --bg-card:        #0e1820;
+            --bg-inner:       #080e14;
+            --border-dim:     #1a2738;
+            --border-mid:     #243548;
+            --cyan:           #00e5ff;
+            --green:          #00e676;
+            --red:            #ff1744;
+            --yellow:         #ffab00;
+            --gray:           #546e7a;
+            --text-primary:   #eceff1;
+            --text-secondary: #78909c;
+            --text-dim:       #37474f;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: var(--bg-main);
+            color: var(--text-primary);
+            font-family: 'Rajdhani', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        /* ═══════════════ HEADER ═══════════════ */
+        header {
+            background: linear-gradient(180deg,#0d1922 0%,var(--bg-main) 100%);
+            padding: 0 24px;
+            height: 66px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border-dim);
+            position: relative;
+            flex-shrink: 0;
+        }
+        header::after {
+            content:''; position:absolute;
+            bottom:0; left:0; right:0; height:1px;
+            background: linear-gradient(90deg,transparent,var(--cyan),transparent);
+            opacity: .2;
+        }
+        .hdr-brand { display:flex; align-items:center; gap:14px; }
+        .hdr-icon {
+            width:40px; height:40px;
+            border:2px solid var(--cyan); border-radius:8px;
+            display:flex; align-items:center; justify-content:center;
+            box-shadow:0 0 10px rgba(0,229,255,.3);
+        }
+        .hdr-icon svg { width:22px; height:22px; fill:var(--cyan); }
+        .hdr-title { font-family:'Orbitron',sans-serif; font-size:1.2rem; font-weight:800; letter-spacing:2px; }
+        .hdr-subtitle { font-family:'Roboto Mono',monospace; font-size:.78rem; color:var(--text-secondary); letter-spacing:1px; margin-top:2px; }
+        .hdr-center { font-family:'Roboto Mono',monospace; font-size:.85rem; letter-spacing:3px; color:var(--text-secondary); text-transform:uppercase; }
+        .hdr-right { display:flex; align-items:center; gap:20px; }
+        .hdr-pill {
+            background:var(--bg-card); border:1px solid var(--border-dim); border-radius:6px;
+            padding:6px 14px; display:flex; align-items:center; gap:8px;
+        }
+        .hdr-pill-label { font-family:'Roboto Mono',monospace; font-size:.7rem; color:var(--text-secondary); text-transform:uppercase; }
+        .hdr-pill-value { font-family:'Orbitron',sans-serif; font-size:1rem; color:var(--cyan); }
+        .status-dot { width:10px; height:10px; border-radius:50%; background:var(--green); box-shadow:0 0 6px var(--green); animation:blink 2s infinite; }
+        .status-dot.off { background:var(--red); box-shadow:0 0 6px var(--red); }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.4} }
+        .hdr-time { font-family:'Orbitron',sans-serif; font-size:1.3rem; color:var(--cyan); letter-spacing:2px; }
+
+        /* ═══════════════ MAIN ═══════════════ */
+        main { flex:1; display:flex; flex-direction:column; padding:20px 16px 10px; }
+        .scene-label {
+            font-family:'Roboto Mono',monospace; font-size:.78rem; letter-spacing:3px;
+            color:var(--text-dim); text-transform:uppercase;
+            margin-bottom:16px; border-left:2px solid var(--cyan); padding-left:10px;
+        }
+        .influx-error {
+            display:none;
+            background:rgba(255,23,68,.08); border:1px solid rgba(255,23,68,.3);
+            border-radius:6px; padding:8px 14px;
+            font-family:'Roboto Mono',monospace; font-size:.78rem;
+            color:var(--red); margin-bottom:12px; letter-spacing:.5px;
+        }
+
+        /* ═══════════════ FLOW STRIP ═══════════════ */
+        .flow-strip {
+            display:flex; align-items:center; flex-wrap:wrap; gap:6px;
+            background:var(--bg-card); border:1px solid var(--border-dim); border-radius:10px;
+            padding:10px 16px; margin-bottom:18px;
+        }
+        .flow-step {
+            font-family:'Roboto Mono',monospace; font-size:.8rem; letter-spacing:.5px;
+            color:var(--text-secondary); white-space:nowrap;
+            border:1px solid var(--border-dim); border-radius:5px; padding:5px 10px;
+            background:var(--bg-inner);
+        }
+        .flow-step.active { color:var(--cyan); border-color:rgba(0,229,255,.35); }
+        .flow-arrow { color:var(--text-dim); font-size:.95rem; }
+
+        /* ═══════════════ CARDS ROW ═══════════════ */
+        .cards-row {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+            align-items: flex-start;
+            justify-content: center;
+            gap: 16px;
+            width: 100%;
+            margin-bottom: 16px;
+        }
+        .st-col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1 1 320px;
+            max-width: 390px;
+            min-width: 0;
+        }
+
+        /* ═══════════════ STATION CARD ═══════════════ */
+        .station-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-dim);
+            border-radius: 12px;
+            padding: 18px 16px 20px;
+            position: relative;
+            width: 100%;
+            max-width: 390px;
+        }
+        .station-card::before {
+            content:''; position:absolute; top:0; left:20px; right:20px; height:1px;
+            background:linear-gradient(90deg,transparent,var(--cyan),transparent);
+            opacity:.25; border-radius:1px;
+        }
+        .station-card.disabled { opacity:.55; }
+        .st-id   { font-family:'Roboto Mono',monospace; font-size:.72rem; color:var(--text-dim); letter-spacing:2px; margin-bottom:3px; }
+        .st-name { font-family:'Orbitron',sans-serif; font-size:1rem; font-weight:600; letter-spacing:1px; color:var(--text-primary); margin-bottom:4px; }
+        .st-sub { font-size:.82rem; color:var(--text-secondary); margin-bottom:12px; }
+        .st-badge-soon {
+            position:absolute; top:12px; right:12px;
+            font-family:'Roboto Mono',monospace; font-size:.68rem; color:var(--yellow);
+            letter-spacing:1px; border:1px solid rgba(255,171,0,.4); border-radius:4px;
+            padding:3px 7px; background:rgba(255,171,0,.06);
+        }
+
+        /* ═══════════════ PUMP CIRCLE ═══════════════ */
+        .pump-circle-wrap {
+            display:flex; align-items:center; gap:12px;
+            background:var(--bg-inner); border:1px solid var(--border-dim);
+            border-radius:8px; padding:10px 12px; margin-bottom:12px;
+        }
+        .pump-circle {
+            width:42px; height:42px; border-radius:50%;
+            background:var(--bg-inner); border:2px solid var(--gray);
+            display:flex; align-items:center; justify-content:center;
+            flex-shrink:0;
+        }
+        .pump-circle.marcha { border-color:var(--green); box-shadow:0 0 10px rgba(0,230,118,.4); }
+        .pump-circle.falla  { border-color:var(--red);   box-shadow:0 0 10px rgba(255,23,68,.4); }
+        .pump-circle.espera { border-color:var(--gray); }
+        .pump-impeller { width:20px; height:20px; }
+        .pump-impeller.spin { animation: spinImpeller 0.8s linear infinite; transform-origin: center; }
+        @keyframes spinImpeller { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
+
+        .pump-name-txt { font-size:1.02rem; font-weight:700; line-height:1.15; }
+        .pump-mode-txt { font-family:'Roboto Mono',monospace; font-size:.72rem; color:var(--text-secondary); }
+        .pump-badge {
+            font-family:'Orbitron',sans-serif; font-size:.7rem;
+            padding:3px 8px; border-radius:3px; background:rgba(255,255,255,.04);
+            white-space:nowrap; flex-shrink:0;
+        }
+        .pump-badge.marcha { color:var(--green); }
+        .pump-badge.falla  { color:var(--red); }
+        .pump-badge.espera { color:var(--gray); }
+
+        /* ═══════════════ STATUS SECTIONS ═══════════════ */
+        .status-section {
+            background:var(--bg-inner); border:1px solid var(--border-dim);
+            border-radius:8px; padding:10px 12px; margin-bottom:9px;
+        }
+        .ss-title {
+            font-family:'Roboto Mono',monospace; font-size:.7rem; letter-spacing:2px;
+            color:var(--text-dim); text-transform:uppercase;
+            margin-bottom:7px; padding-bottom:6px; border-bottom:1px solid var(--border-dim);
+        }
+        .srow { display:flex; justify-content:space-between; align-items:center; padding:4px 0; }
+        .srow-label { font-size:.92rem; color:var(--text-secondary); }
+        .srow-value { font-family:'Roboto Mono',monospace; font-size:.92rem; color:var(--text-primary); text-align:right; }
+        .srow-value.cyan   { color:var(--cyan);   font-weight:700; }
+        .srow-value.green  { color:var(--green);  font-weight:700; }
+        .srow-value.red    { color:var(--red);    font-weight:700; animation:pls .8s infinite alternate; }
+        .srow-value.yellow { color:var(--yellow); font-weight:700; }
+        .srow-value.gray   { color:var(--gray); }
+        @keyframes pls { 0%{opacity:.5} 100%{opacity:1} }
+        .srow + .srow { border-top:1px solid rgba(26,39,56,.6); }
+
+        /* skeleton loader */
+        .skel {
+            display:inline-block; width:52px; height:11px;
+            background:linear-gradient(90deg,var(--border-dim),var(--border-mid),var(--border-dim));
+            background-size:200% 100%; animation:skel 1.2s infinite; border-radius:3px; vertical-align:middle;
+        }
+        @keyframes skel { 0%{background-position:200%} 100%{background-position:-200%} }
+
+        /* ═══════════════ LEGEND ═══════════════ */
+        .legend-bar {
+            background:var(--bg-card); border:1px solid var(--border-dim); border-radius:10px;
+            padding:11px 20px; display:flex; align-items:center; gap:22px; flex-wrap:wrap;
+        }
+        .legend-item { display:flex; align-items:center; gap:7px; font-size:.9rem; color:var(--text-secondary); }
+        .leg-dot { width:11px; height:11px; border-radius:50%; flex-shrink:0; }
+
+        /* ═══════════════ FOOTER ═══════════════ */
+        footer {
+            text-align:center; padding:14px;
+            font-family:'Roboto Mono',monospace; font-size:.78rem;
+            color:var(--text-dim); letter-spacing:1px;
+            border-top:1px solid var(--border-dim); margin-top:14px;
+        }
+        footer span { color:var(--cyan); }
+
+        /* ═══════════════ RESPONSIVE ═══════════════ */
+        @media(max-width:820px){
+            .cards-row { flex-direction:column; align-items:center; gap:14px; }
+            .st-col { width:100%; max-width:400px; }
+            .station-card { max-width:100%; }
+            .hdr-center { display:none; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="hdr-brand">
+        <div class="hdr-icon">
+            <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
+        </div>
+        <div>
+            <div class="hdr-title">AQUA SCADA</div>
+            <div class="hdr-subtitle">RED DE AGUA · PLANTA DE BOMBEO</div>
+        </div>
+    </div>
+    <div class="hdr-center">SISTEMA DE MONITOREO · BOMBAS DE AGUA</div>
+    <div class="hdr-right">
+        <div class="hdr-pill">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="var(--cyan)"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 14.93V15h-2v1.93A8 8 0 0 1 4.07 11H6V9H4.07A8 8 0 0 1 11 4.07V6h2V4.07A8 8 0 0 1 19.93 11H18v2h1.93A8 8 0 0 1 13 16.93z"/></svg>
+            <div>
+                <div class="hdr-pill-label">CPU TEMP</div>
+                <div class="hdr-pill-value"><span id="cpu-temp">—</span> °C</div>
+            </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+            <div class="status-dot" id="status-dot"></div>
+            <span style="font-family:'Roboto Mono',monospace;font-size:.85rem;color:var(--green);letter-spacing:1px;" id="status-txt">EN LÍNEA</span>
+        </div>
+        <div class="hdr-time" id="hdr-clock">00:00:00</div>
+    </div>
+</header>
+
+<main>
+    <div class="scene-label">ESTADO DE PLANTA</div>
+    <div class="influx-error" id="influx-error">⚠ ERROR DE CONEXIÓN INFLUXDB — Mostrando últimos datos conocidos</div>
+
+    <div class="flow-strip">
+        <span class="flow-step">Perforación</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step active">Bomba Sumergible (B1)</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step">Caudalímetro</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step">Cisterna</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step active">Bomba Principal + Bomba Auxiliar</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step">Red (Presión)</span>
+    </div>
+
+    <div class="cards-row">
+
+        <!-- ═══════════════ BOMBA SUMERGIBLE — INFERIDA VÍA ANALIZADOR DE RED ═══════════════ -->
+        <div class="st-col">
+            <div class="station-card">
+                <div class="st-id">EQUIPO 01 · POZO</div>
+                <div class="st-name">BOMBA SUMERGIBLE · B1</div>
+                <div class="st-sub">Extracción de perforación · Estado inferido por el Analizador de Red</div>
+
+                <div class="pump-circle-wrap">
+                    <div class="pump-circle espera" id="pcircle-sum">
+                        <svg class="pump-impeller" id="pimpeller-sum" viewBox="0 0 16 16">
+                            <circle cx="8" cy="8" r="2.5" fill="var(--gray)"/>
+                            <path d="M8 1.5C10 4 12 4 8 8" fill="none" stroke="var(--gray)" stroke-width="1.8" stroke-linecap="round"/>
+                            <path d="M8 14.5C6 12 4 12 8 8" fill="none" stroke="var(--gray)" stroke-width="1.8" stroke-linecap="round"/>
+                            <path d="M1.5 8C4 6 4 4 8 8" fill="none" stroke="var(--gray)" stroke-width="1.8" stroke-linecap="round"/>
+                            <path d="M14.5 8C12 10 12 12 8 8" fill="none" stroke="var(--gray)" stroke-width="1.8" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                    <div class="pump-info">
+                        <div class="pump-name-txt">Bomba Sumergible</div>
+                        <div class="pump-mode-txt">ESTADO: <span id="sum-modo-val">—</span></div>
+                    </div>
+                    <div class="pump-badge espera" id="sum-badge" style="display:none">—</div>
+                </div>
+
+                <div class="status-section">
+                    <div class="ss-title">TENSIÓN DE RED (V)</div>
+                    <div class="srow">
+                        <span class="srow-label">Fase L1</span>
+                        <span class="srow-value cyan" id="an-v1"><span class="skel"></span></span>
+                    </div>
+                    <div class="srow">
+                        <span class="srow-label">Fase L2</span>
+                        <span class="srow-value cyan" id="an-v2"><span class="skel"></span></span>
+                    </div>
+                    <div class="srow">
+                        <span class="srow-label">Fase L3</span>
+                        <span class="srow-value cyan" id="an-v3"><span class="skel"></span></span>
+                    </div>
+                </div>
+
+                <div class="status-section">
+                    <div class="ss-title">CORRIENTE (A)</div>
+                    <div class="srow">
+                        <span class="srow-label">Fase L1</span>
+                        <span class="srow-value cyan" id="an-i1"><span class="skel"></span></span>
+                    </div>
+                    <div class="srow">
+                        <span class="srow-label">Fase L2</span>
+                        <span class="srow-value cyan" id="an-i2"><span class="skel"></span></span>
+                    </div>
+                    <div class="srow">
+                        <span class="srow-label">Fase L3</span>
+                        <span class="srow-value cyan" id="an-i3"><span class="skel"></span></span>
+                    </div>
+                    <div class="srow" style="border-top:1px solid var(--border-dim);margin-top:3px;padding-top:3px;">
+                        <span class="srow-label">Corriente Promedio</span>
+                        <span class="srow-value cyan" id="an-iavg"><span class="skel"></span></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══════════════ CAUDALÍMETRO MUT7000 ═══════════════ -->
+        <div class="st-col">
+            <div class="station-card">
+                <div class="st-id">EQUIPO 02 · CAUDAL</div>
+                <div class="st-name">CAUDALÍMETRO MUT7000</div>
+                <div class="st-sub">BERMAD · Salida de la Bomba Sumergible</div>
+
+                <div class="status-section">
+                    <div class="ss-title">CAUDAL</div>
+                    <div class="srow">
+                        <span class="srow-label">Caudal Instantáneo</span>
+                        <span class="srow-value cyan" id="cd-inst"><span class="skel"></span></span>
+                    </div>
+                    <div class="srow">
+                        <span class="srow-label">Velocidad del Fluido</span>
+                        <span class="srow-value cyan" id="cd-vel"><span class="skel"></span></span>
+                    </div>
+                </div>
+                <div class="status-section">
+                    <div class="ss-title">TOTALIZADORES</div>
+                    <div class="srow">
+                        <span class="srow-label">Total Acumulado</span>
+                        <span class="srow-value cyan" id="cd-totpos"><span class="skel"></span></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══════════════ CFW500 — BOMBA PRINCIPAL (VELOCIDAD VARIABLE) ═══════════════ -->
+        <div class="st-col">
+            <div class="station-card">
+                <div class="st-id">EQUIPO 03 · PRESURIZACIÓN</div>
+                <div class="st-name">BOMBA PRINCIPAL</div>
+                <div class="st-sub">Variador CFW500 </div>
+
+                <div class="pump-circle-wrap">
+                    <div class="pump-circle espera" id="pcircle-cfw">
+                        <svg class="pump-impeller" id="pimpeller-cfw" viewBox="0 0 16 16">
+                            <circle cx="8" cy="8" r="2.5" fill="var(--gray)"/>
+                            <path d="M8 1.5C10 4 12 4 8 8" fill="none" stroke="var(--gray)" stroke-width="1.8" stroke-linecap="round"/>
+                            <path d="M8 14.5C6 12 4 12 8 8" fill="none" stroke="var(--gray)" stroke-width="1.8" stroke-linecap="round"/>
+                            <path d="M1.5 8C4 6 4 4 8 8" fill="none" stroke="var(--gray)" stroke-width="1.8" stroke-linecap="round"/>
+                            <path d="M14.5 8C12 10 12 12 8 8" fill="none" stroke="var(--gray)" stroke-width="1.8" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                    <div class="pump-info">
+                        <div class="pump-name-txt">CFW500</div>
+                        <div class="pump-mode-txt">ESTADO: <span id="cfw-modo-val">—</span></div>
+                    </div>
+                    <div class="pump-badge espera" id="cfw-badge" style="display:none">—</div>
+                </div>
+
+                <div class="status-section">
+                    <div class="ss-title">ESTADO OPERATIVO</div>
+                    <div class="srow">
+                        <span class="srow-label">Estado</span>
+                        <span class="srow-value" id="cfw-s-estado"><span class="skel"></span></span>
+                    </div>
+                    <div class="srow">
+                        <span class="srow-label">Falla Actual</span>
+                        <span class="srow-value" id="cfw-s-cfact"><span class="skel"></span></span>
+                    </div>
+                    <div class="srow">
+                        <span class="srow-label">Falla Anterior</span>
+                        <span class="srow-value" id="cfw-s-cfant"><span class="skel"></span></span>
+                    </div>
+                    <div class="srow">
+                        <span class="srow-label">Temp. Disipador</span>
+                        <span class="srow-value cyan" id="cfw-s-temp"><span class="skel"></span></span>
+                    </div>
+                    <div class="srow">
+                        <span class="srow-label">Tensión Bus DC</span>
+                        <span class="srow-value cyan" id="cfw-s-vdc"><span class="skel"></span></span>
+                    </div>
+                </div>
+
+                <div class="status-section">
+                    <div class="ss-title">FUNCIONAMIENTO</div>
+                    <div class="srow">
+                        <span class="srow-label">Frecuencia de Salida</span>
+                        <span class="srow-value cyan" id="cfw-freq"><span class="skel"></span></span>
+                    </div>
+                    <div class="srow">
+                        <span class="srow-label">Corriente del Motor</span>
+                        <span class="srow-value cyan" id="cfw-corr"><span class="skel"></span></span>
+                    </div>
+                    <div class="srow">
+                        <span class="srow-label">Horas Func. (Acumulado)</span>
+                        <span class="srow-value cyan" id="cfw-hs"><span class="skel"></span></span>
+                    </div>
+                </div>
+
+                <div class="status-section">
+                    <div class="ss-title">PRESIÓN</div>
+                    <div class="srow">
+                        <span class="srow-label">Presión de Referencia (setpoint)</span>
+                        <span class="srow-value cyan" id="cfw-pref"><span class="skel"></span></span>
+                    </div>
+                    <div class="srow">
+                        <span class="srow-label">Presión de Red (P1016)</span>
+                        <span class="srow-value cyan" id="cfw-pred"><span class="skel"></span></span>
+                    </div>
+                </div>
+
+                <div class="status-section">
+                    <div class="ss-title">INTERLOCK DEL SISTEMA</div>
+                    <div class="srow">
+                        <span class="srow-label">DI1 · Sistema Habilitado</span>
+                        <span class="srow-value" id="cfw-di1"><span class="skel"></span></span>
+                    </div>
+                    <div class="srow-label" style="font-size:.8rem;line-height:1.35;margin-top:6px;">
+                        Se desactiva si se deshabilitó la Bomba Sumergible o si
+                        la cisterna se quedó sin agua.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══════════════ BOMBA AUXILIAR — HABILITADA POR DI2, ARRANCADA POR DO2 ═══════════════ -->
+        <div class="st-col">
+            <div class="station-card">
+                <div class="st-id">EQUIPO 04 · PRESURIZACIÓN</div>
+                <div class="st-name">BOMBA AUXILIAR</div>
+                <div class="st-sub"></div>
+
+                <div class="status-section">
+                    <div class="ss-title">HABILITACIÓN</div>
+                    <div class="srow">
+                        <span class="srow-label">DI2 · Bomba Auxiliar Habilitada</span>
+                        <span class="srow-value" id="cfw-di2"><span class="skel"></span></span>
+                    </div>
+                </div>
+                <div class="status-section">
+                    <div class="ss-title">ESTADO (COMANDO)</div>
+                    <div class="srow">
+                        <span class="srow-label">Salida DO2 (marcha/parada)</span>
+                        <span class="srow-value" id="bomba2-do2"><span class="skel"></span></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══════════════ NIVEL DE CISTERNA — PROBABLEMENTE VÍA ENTRADA DIGITAL ═══════════════ -->
+        <div class="st-col">
+            <div class="station-card">
+                <div class="st-id">EQUIPO 05 · CISTERNA</div>
+                <div class="st-name">NIVEL DE CISTERNA</div>
+                <div class="st-sub"></div>
+
+                <div class="status-section">
+                    <div class="ss-title">NIVEL</div>
+                    <div class="srow">
+                        <span class="srow-label">Estado</span>
+                        <span class="srow-value" id="cisterna-nivel"><span class="skel"></span></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="legend-bar">
+        <div class="legend-item"><div class="leg-dot" style="background:var(--green);box-shadow:0 0 5px var(--green)"></div> MARCHANDO</div>
+        <div class="legend-item"><div class="leg-dot" style="background:var(--red);box-shadow:0 0 5px var(--red)"></div> FALLA</div>
+        <div class="legend-item"><div class="leg-dot" style="background:var(--gray)"></div> EN ESPERA</div>
+        <div class="legend-item"><div class="leg-dot" style="background:var(--yellow);box-shadow:0 0 5px var(--yellow)"></div> DESHABILITADA (DI)</div>
+    </div>
+
+    <!-- ═══════════════ GRÁFICO HISTÓRICO 3 DÍAS ═══════════════ -->
+    <div style="margin-top:24px;">
+        <div class="scene-label" style="margin-bottom:12px;">HISTÓRICO · ÚLTIMAS 72 HORAS</div>
+        <div style="background:var(--bg-card);border:1px solid var(--border-dim);border-radius:10px;padding:16px;position:relative;">
+            <canvas id="chart-historico" style="width:100%;height:260px;"></canvas>
+            <div id="chart-empty-msg" style="display:none;position:absolute;inset:16px;align-items:center;justify-content:center;text-align:center;font-family:'Roboto Mono',monospace;font-size:.85rem;color:var(--text-secondary);padding:0 20px;">
+                Sin datos en las últimas 72 horas todavía.
+            </div>
+        </div>
+    </div>
+</main>
+
+<footer>
+    TELEMETRÍA HOST · CPU TEMP: <span id="footer-temp">—</span> °C · ESTADO: <span id="footer-net">—</span>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script>
+/* ══════════════════════════════════════════════════
+   ⚙  CONFIGURACIÓN — COMPLETAR ANTES DE USAR
+   Estos 4 valores tienen que coincidir con los que use
+   el script de la Raspberry Pi (monitor_aqua_sacada.py)
+   para que este dashboard pueda leer los datos.
+   ══════════════════════════════════════════════════ */
+const INFLUX_URL    = 'https://us-east-1-1.aws.cloud2.influxdata.com';   // ej: 'https://us-east-1-1.aws.cloud2.influxdata.com'
+const INFLUX_TOKEN  = 'xkR0CbNYwjXRO2Unql8H0oa6un5642pGkmzhm8M20B3ps4RQizlVjM8C9vM0SN9JH7G7z4ZKZhkX7PlhfaSiYA==';   // token de InfluxDB con permiso de lectura
+const INFLUX_ORG    = 'SistemaMonitoreoBombas';   // organización de InfluxDB
+const INFLUX_BUCKET = 'Bengolea_monitoreo';   // bucket de InfluxDB
+const POLL_MS       = 5000;
+/* ════════════════════════════════════════════════ */
+
+const MEASUREMENT = 'monitoreo_bombas';
+
+// El Analizador de Red reporta la corriente multiplicada x100
+// (ej: 1300 en vez de 13.00 A). Se corrige acá para no tocar
+// la fuente de datos en la Raspberry Pi.
+const FACTOR_CORRIENTE_ANALIZADOR = 100;
+
+// ── Clock ──────────────────────────────────────
+function updateClock(){
+    const n=new Date(), p=v=>String(v).padStart(2,'0');
+    document.getElementById('hdr-clock').textContent=`${p(n.getHours())}:${p(n.getMinutes())}:${p(n.getSeconds())}`;
+}
+updateClock(); setInterval(updateClock,1000);
+
+// ── Helpers ────────────────────────────────────
+function set(id,val){ const e=document.getElementById(id); if(e) e.textContent=val; }
+function rowClass(id,c){ const e=document.getElementById(id); if(e) e.className='srow-value '+c; }
+
+function setPilot(circleId,impellerId,badgeId,state){
+    const c=document.getElementById(circleId);
+    const b=document.getElementById(badgeId);
+    const imp=document.getElementById(impellerId);
+    if(!c) return;
+    c.className='pump-circle '+state;
+
+    if(imp){
+        if(state === 'marcha') imp.classList.add('spin');
+        else imp.classList.remove('spin');
+    }
+
+    const labels={marcha:'EN MARCHA',falla:'CON FALLA',espera:'EN ESPERA'};
+    if(b){ b.className='pump-badge '+state; b.textContent=labels[state]||state.toUpperCase(); }
+    const color={marcha:'var(--green)',falla:'var(--red)',espera:'var(--gray)'}[state];
+    if(imp && color){
+        imp.querySelectorAll('circle').forEach(el=>el.setAttribute('fill',color));
+        imp.querySelectorAll('path').forEach(el=>{ el.setAttribute('stroke',color); el.setAttribute('fill','none'); });
+    }
+}
+
+// ── Flux query ─────────────────────────────────
+async function fluxQuery(query){
+    const resp=await fetch(`${INFLUX_URL}/api/v2/query?org=${encodeURIComponent(INFLUX_ORG)}`,{
+        method:'POST',
+        headers:{
+            'Authorization':`Token ${INFLUX_TOKEN}`,
+            'Content-Type':'application/vnd.flux',
+            'Accept':'application/csv'
+        },
+        body:query
+    });
+    if(!resp.ok) throw new Error(`InfluxDB HTTP ${resp.status}`);
+    const text=await resp.text();
+    const lines=text.trim().split('\n').filter(l=>l && !l.startsWith('#') && !l.startsWith(',result'));
+    if(!lines.length) return null;
+    const last=lines[lines.length-1].split(',');
+    return last[last.length-1].trim();
+}
+
+async function fluxLast(field){
+    return fluxQuery(
+        `from(bucket:"${INFLUX_BUCKET}")`+
+        `|> range(start:-1h)`+
+        `|> filter(fn:(r)=>r._measurement=="${MEASUREMENT}" and r._field=="${field}")`+
+        `|> last()`+
+        `|> keep(columns:["_value"])`
+    );
+}
+
+// ── Fetch InfluxDB ──────────────────────────────
+async function fetchInflux(){
+    try {
+        if(!INFLUX_URL || !INFLUX_TOKEN || !INFLUX_ORG || !INFLUX_BUCKET){
+            throw new Error('Config de InfluxDB incompleta — completar INFLUX_URL/TOKEN/ORG/BUCKET');
+        }
+
+        const [
+            cfwEnFalla, cfwEnMarcha, cfwFalla, cfwFallaAnt, cfwTemp, cfwVdc,
+            cfwFrec, cfwCorr, cfwHs, cfwPref, cfwPred, cfwDi1, cfwDi2, cfwDo2,
+            anV1, anV2, anV3, anI1, anI2, anI3, anIavg,
+            cdInst, cdVel, cdTotPos, cdTotNeg,
+            cisternaNivel,
+            rpiTemp
+        ] = await Promise.all([
+            fluxLast('cfw500_en_falla'),
+            fluxLast('cfw500_en_marcha'),
+            fluxLast('cfw500_falla'),
+            fluxLast('cfw500_falla_anterior'),
+            fluxLast('cfw500_temp_disipador'),
+            fluxLast('cfw500_tension_bus_dc'),
+            fluxLast('cfw500_frecuencia'),
+            fluxLast('cfw500_corriente'),
+            fluxLast('cfw500_horas_funcionamiento'),
+            fluxLast('cfw500_presion_referencia'),
+            fluxLast('cfw500_presion_red'),
+            fluxLast('cfw500_sistema_presurizacion_habilitado'),
+            fluxLast('cfw500_bomba_auxiliar_habilitada'),
+            fluxLast('cfw500_do2_estado'),
+            fluxLast('analizador_tension_l1'),
+            fluxLast('analizador_tension_l2'),
+            fluxLast('analizador_tension_l3'),
+            fluxLast('analizador_corriente_l1'),
+            fluxLast('analizador_corriente_l2'),
+            fluxLast('analizador_corriente_l3'),
+            fluxLast('analizador_corriente_promedio'),
+            fluxLast('caudalimetro_instantaneo_m3h'),
+            fluxLast('caudalimetro_velocidad_ms'),
+            fluxLast('caudalimetro_total_positivo_m3'),
+            fluxLast('caudalimetro_total_negativo_m3'),
+            fluxLast('cisterna_nivel'),
+            fluxLast('rpi_cpu_temp')
+        ]);
+
+        document.getElementById('influx-error').style.display='none';
+        document.getElementById('status-dot').className='status-dot';
+        set('status-txt','EN LÍNEA'); document.getElementById('status-txt').style.color='var(--green)';
+        set('footer-net','ONLINE');
+
+        // ── Formatters ──
+        const isTrue = v => v==='1'||v===1||v===true||v==='true';
+        const fmtFalla = val => {
+            if(val===null||val==='0'||val===0) return 'SIN FALLA';
+            const n=parseInt(val); if(isNaN(n)||n===0) return 'SIN FALLA';
+            return 'F'+String(n).padStart(3,'0');
+        };
+
+        // ══════════════════════════════════════
+        // CFW500 — VARIADOR
+        // ══════════════════════════════════════
+        const enFalla  = isTrue(cfwEnFalla);
+        const enMarcha = isTrue(cfwEnMarcha);
+        let stCfw='espera', cfwEstadoTxt='EN ESPERA';
+        if(enFalla)        { stCfw='falla';  cfwEstadoTxt='CON FALLA'; }
+        else if(enMarcha)  { stCfw='marcha'; cfwEstadoTxt='EN MARCHA'; }
+
+        set('cfw-modo-val', cfwEstadoTxt);
+        rowClass('cfw-s-estado', stCfw==='marcha'?'green':stCfw==='falla'?'red':'gray');
+        set('cfw-s-estado', '● ' + cfwEstadoTxt);
+
+        const cfactTxt=fmtFalla(cfwFalla);    set('cfw-s-cfact',cfactTxt); rowClass('cfw-s-cfact',cfactTxt==='SIN FALLA'?'green':'red');
+        const cfantTxt=fmtFalla(cfwFallaAnt); set('cfw-s-cfant',cfantTxt); rowClass('cfw-s-cfant',cfantTxt==='SIN FALLA'?'gray':'yellow');
+
+        set('cfw-s-temp', cfwTemp!==null?`${parseFloat(cfwTemp).toFixed(1)} °C`:'—');
+        set('cfw-s-vdc',  cfwVdc!==null?`${parseFloat(cfwVdc).toFixed(0)} V`:'—');
+        set('cfw-freq',   cfwFrec!==null?`${parseFloat(cfwFrec).toFixed(1)} Hz`:'—');
+        set('cfw-corr',   cfwCorr!==null?`${parseFloat(cfwCorr).toFixed(1)} A`:'—');
+        set('cfw-hs',     cfwHs!==null?`${parseFloat(cfwHs).toFixed(1)} h`:'—');
+        set('cfw-pref',   cfwPref!==null?`${parseFloat(cfwPref).toFixed(1)} bar`:'—');
+        set('cfw-pred',   cfwPred!==null?`${parseFloat(cfwPred).toFixed(1)} bar`:'—');
+
+        const di1hab = isTrue(cfwDi1), di2hab = isTrue(cfwDi2);
+        set('cfw-di1', di1hab?'HABILITADO':'DESHABILITADO'); rowClass('cfw-di1', di1hab?'green':'red');
+        set('cfw-di2', di2hab?'HABILITADA':'DESHABILITADA'); rowClass('cfw-di2', di2hab?'green':'yellow');
+
+        setPilot('pcircle-cfw','pimpeller-cfw','cfw-badge',stCfw);
+
+        // ══════════════════════════════════════
+        // BOMBA SUMERGIBLE — inferida vía Analizador de Red
+        // ══════════════════════════════════════
+        // Corrige la corriente del analizador (viene x100 desde el equipo)
+        const convICorriente = v => v!==null ? parseFloat(v)/FACTOR_CORRIENTE_ANALIZADOR : null;
+        const anI1c = convICorriente(anI1), anI2c = convICorriente(anI2),
+              anI3c = convICorriente(anI3), anIavgC = convICorriente(anIavg);
+
+        set('an-v1', anV1!==null?`${parseFloat(anV1).toFixed(1)} V`:'—');
+        set('an-v2', anV2!==null?`${parseFloat(anV2).toFixed(1)} V`:'—');
+        set('an-v3', anV3!==null?`${parseFloat(anV3).toFixed(1)} V`:'—');
+        set('an-i1', anI1c!==null?`${anI1c.toFixed(1)} A`:'—');
+        set('an-i2', anI2c!==null?`${anI2c.toFixed(1)} A`:'—');
+        set('an-i3', anI3c!==null?`${anI3c.toFixed(1)} A`:'—');
+        set('an-iavg', anIavgC!==null?`${anIavgC.toFixed(1)} A`:'—');
+
+        // No hay una señal directa de marcha/parada para la bomba sumergible:
+        // se infiere por la corriente promedio medida en el analizador de red.
+        // Umbral bajo (0.5 A, ya con el factor de conversión aplicado) para
+        // distinguir "corriendo" de "ruido/fuga en reposo" — ajustar si en la
+        // instalación real el consumo en vacío da más alto.
+        const UMBRAL_CORRIENTE_MARCHA = 0.5;
+        let stSum = 'espera', sumTxt = 'DETENIDA';
+        if(anIavgC !== null && anIavgC >= UMBRAL_CORRIENTE_MARCHA){
+            stSum = 'marcha'; sumTxt = 'BOMBEANDO';
+        }
+        set('sum-modo-val', sumTxt);
+        setPilot('pcircle-sum','pimpeller-sum','sum-badge',stSum);
+
+        // ══════════════════════════════════════
+        // CAUDALÍMETRO MUT7000
+        // ══════════════════════════════════════
+        set('cd-inst',   cdInst!==null?`${parseFloat(cdInst).toFixed(2)} m³/h`:'—');
+        set('cd-vel',    cdVel!==null?`${parseFloat(cdVel).toFixed(2)} m/s`:'—');
+        set('cd-totpos', cdTotPos!==null?`${parseFloat(cdTotPos).toFixed(1)} m³`:'—');
+        set('cd-totneg', cdTotNeg!==null?`${parseFloat(cdTotNeg).toFixed(1)} m³`:'—');
+
+        // ══════════════════════════════════════
+        // BOMBA AUXILIAR — estado real de la salida DO2
+        // ══════════════════════════════════════
+        if(cfwDo2!==null){
+            const do2On = isTrue(cfwDo2);
+            set('bomba2-do2', do2On?'EN MARCHA':'DETENIDA');
+            rowClass('bomba2-do2', do2On?'green':'gray');
+        } else {
+            set('bomba2-do2','—');
+        }
+
+        // ══════════════════════════════════════
+        // NIVEL DE CISTERNA
+        // ══════════════════════════════════════
+        if(cisternaNivel!==null){
+            const nivelOk = isTrue(cisternaNivel);
+            set('cisterna-nivel', nivelOk?'CON AGUA':'BAJO / SIN AGUA');
+            rowClass('cisterna-nivel', nivelOk?'green':'red');
+        } else {
+            set('cisterna-nivel','—');
+        }
+
+        // Temperatura CPU RPi
+        if(rpiTemp!==null){
+            const t=parseFloat(rpiTemp).toFixed(1);
+            set('cpu-temp',t); set('footer-temp',t);
+        }
+
+    } catch(err){
+        console.warn('InfluxDB error:',err);
+        document.getElementById('influx-error').style.display='block';
+        document.getElementById('influx-error').textContent = '⚠ ' + err.message;
+        document.getElementById('status-dot').className='status-dot off';
+        set('status-txt','SIN CONEXIÓN'); document.getElementById('status-txt').style.color='var(--red)';
+        set('footer-net','OFFLINE');
+    }
+}
+
+// ── Gráfico Histórico 72h ──────────────────────
+let _chart = null;
+
+// Trae el texto CSV crudo de una consulta Flux, sin parsear.
+async function fluxFetchRaw(query){
+    const resp = await fetch(`${INFLUX_URL}/api/v2/query?org=${encodeURIComponent(INFLUX_ORG)}`,{
+        method:'POST',
+        headers:{'Authorization':`Token ${INFLUX_TOKEN}`,'Content-Type':'application/vnd.flux','Accept':'application/csv'},
+        body:query
+    });
+    if(!resp.ok) throw new Error(`InfluxDB HTTP ${resp.status}`);
+    return resp.text();
+}
+
+// Parsea el CSV anotado de Flux por índice de columna (_time/_value), no por
+// posición fija — la fila de header también empieza con coma (columna
+// "result" vacía), así que solo se descartan las líneas de comentario (#).
+function parseFluxCSV(text){
+    const lines = text.trim().split(/\r?\n/).filter(l => l && !l.startsWith('#'));
+    if(!lines.length) return [];
+    const header = lines[0].split(',').map(h => h.trim());
+    const iTime = header.indexOf('_time');
+    const iVal = header.indexOf('_value');
+    if(iTime < 0 || iVal < 0) return [];
+    const out = [];
+    for(let i = 1; i < lines.length; i++){
+        const cols = lines[i].split(',');
+        const t = cols[iTime], v = cols[iVal] !== undefined ? cols[iVal].trim() : undefined;
+        if(!t) continue;
+        // Sin valor (ventana vacía por createEmpty:true, o valor no numérico):
+        // se conserva como hueco explícito (y:null) en vez de descartar la fila.
+        // Esto permite que Chart.js corte la línea en vez de trazar una diagonal
+        // entre el último dato antes del corte y el primero después.
+        if(v === undefined || v === ''){ out.push({ x: new Date(t), y: null }); continue; }
+        const y = parseFloat(v);
+        if(isNaN(y)){ out.push({ x: new Date(t), y: null }); continue; }
+        out.push({ x: new Date(t), y });
+    }
+    // Red de seguridad: aunque la consulta ya pide orden cronológico,
+    // ordenamos también acá para que la línea del gráfico siempre avance
+    // de izquierda a derecha.
+    return out.sort((a, b) => a.x - b.x);
+}
+
+async function fluxRange(field){
+    if(!field) return [];
+    const text = await fluxFetchRaw(
+        `from(bucket:"${INFLUX_BUCKET}")`+
+        `|> range(start:-72h)`+
+        `|> filter(fn:(r)=>r._measurement=="${MEASUREMENT}" and r._field=="${field}")`+
+        `|> aggregateWindow(every:5m, fn:mean, createEmpty:true)`+
+        `|> sort(columns:["_time"])`+
+        `|> keep(columns:["_time","_value"])`
+    );
+    return parseFluxCSV(text);
+}
+
+async function renderChart(){
+    if(!INFLUX_URL || !INFLUX_TOKEN || !INFLUX_ORG || !INFLUX_BUCKET) return;
+
+    try {
+        const [d1,d2raw,d3,d4,d5,d6,d7] = await Promise.all([
+            fluxRange('cfw500_corriente'),
+            fluxRange('analizador_corriente_promedio'),
+            fluxRange('analizador_tension_l1'),
+            fluxRange('analizador_tension_l2'),
+            fluxRange('analizador_tension_l3'),
+            fluxRange('caudalimetro_total_positivo_m3'),
+            fluxRange('cfw500_presion_red'),
+        ]);
+
+        // Corrige la corriente del analizador (viene x100 desde el equipo)
+        const d2 = d2raw.map(p => ({ x: p.x, y: p.y!==null ? p.y/FACTOR_CORRIENTE_ANALIZADOR : null }));
+
+        const huboDatos = [d1,d2,d3,d4,d5,d6,d7].some(d => d.length > 0);
+        document.getElementById('chart-empty-msg').style.display = huboDatos ? 'none' : 'flex';
+
+        const ctx = document.getElementById('chart-historico').getContext('2d');
+        const cfg = {
+            type:'line',
+            data:{
+                datasets:[
+                    {label:'Corriente Bomba Principal (A)',      data:d1, borderColor:'#00e676', backgroundColor:'rgba(0,230,118,.08)', borderWidth:1.5, pointRadius:0, tension:0.3, yAxisID:'yA', spanGaps:false},
+                    {label:'Corriente Bomba Sumergible (A)', data:d2, borderColor:'#00e5ff', backgroundColor:'rgba(0,229,255,.06)', borderWidth:1.5, pointRadius:0, tension:0.3, yAxisID:'yA', spanGaps:false},
+                    {label:'Tensión Red L1 (V)', data:d3, borderColor:'#ffab00', backgroundColor:'transparent', borderWidth:1, pointRadius:0, tension:0.3, yAxisID:'yV', spanGaps:false},
+                    {label:'Tensión Red L2 (V)', data:d4, borderColor:'#ff6d00', backgroundColor:'transparent', borderWidth:1, pointRadius:0, tension:0.3, yAxisID:'yV', spanGaps:false},
+                    {label:'Tensión Red L3 (V)', data:d5, borderColor:'#ff1744', backgroundColor:'transparent', borderWidth:1, pointRadius:0, tension:0.3, yAxisID:'yV', spanGaps:false},
+                    {label:'Total Acumulado (m³)', data:d6, borderColor:'#d500f9', backgroundColor:'rgba(213,0,249,.06)', borderWidth:1.5, pointRadius:0, tension:0.1, yAxisID:'yT', spanGaps:false},
+                    {label:'Presión de Red (bar)', data:d7, borderColor:'#ffea00', backgroundColor:'transparent', borderWidth:1.5, pointRadius:0, tension:0.3, yAxisID:'yP', spanGaps:false},
+                ]
+            },
+            options:{
+                responsive:true, maintainAspectRatio:false,
+                interaction:{mode:'index',intersect:false},
+                plugins:{
+                    legend:{labels:{color:'#78909c',font:{size:12},boxWidth:14}},
+                    tooltip:{backgroundColor:'#0e1820',borderColor:'#243548',borderWidth:1,
+                        titleColor:'#eceff1',bodyColor:'#78909c',
+                        titleFont:{size:12}, bodyFont:{size:12},
+                        callbacks:{title:items=>{const d=new Date(items[0].parsed.x);return d.toLocaleString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});}}}
+                },
+                scales:{
+                    x:{type:'time',time:{unit:'hour',displayFormats:{hour:'dd/MM HH:mm'}},
+                        ticks:{color:'#546e7a',font:{size:11},maxRotation:0},
+                        grid:{color:'rgba(36,53,72,.5)'}},
+                    yA:{position:'left', title:{display:true,text:'Corriente (A)',color:'#00e676',font:{size:11}},
+                        ticks:{color:'#546e7a',font:{size:11}}, grid:{color:'rgba(36,53,72,.5)'}},
+                    yV:{position:'right', title:{display:true,text:'Tensión (V)',color:'#ffab00',font:{size:11}},
+                        ticks:{color:'#546e7a',font:{size:11}}, grid:{display:false}},
+                    yT:{position:'right', title:{display:true,text:'Total Acum. (m³)',color:'#d500f9',font:{size:11}},
+                        ticks:{color:'#546e7a',font:{size:11}}, grid:{display:false}},
+                    yP:{position:'right', title:{display:true,text:'Presión Red (bar)',color:'#ffea00',font:{size:11}},
+                        ticks:{color:'#546e7a',font:{size:11}}, grid:{display:false}}
+                }
+            }
+        };
+        if(_chart){ _chart.data.datasets.forEach((ds,i)=>{ds.data=[d1,d2,d3,d4,d5,d6,d7][i];}); _chart.update('none'); }
+        else { _chart = new Chart(ctx, cfg); }
+
+    } catch(err){
+        console.error('[Histórico 72h] Error:', err);
+        const msg = document.getElementById('chart-empty-msg');
+        msg.style.display = 'flex';
+        msg.textContent = 'No se pudo cargar el histórico. Detalle: ' + (err && err.message ? err.message : String(err));
+    }
+}
+
+// Carga el gráfico una vez al inicio y cada 5 minutos (no cada 5s para no martillar InfluxDB)
+renderChart();
+setInterval(renderChart, 5*60*1000);
+
+// ── Poll ───────────────────────────────────────
+fetchInflux();
+setInterval(fetchInflux, POLL_MS);
+</script>
+</body>
+</html>
